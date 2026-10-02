@@ -2009,6 +2009,14 @@ class ChessApp {
                 // Show absorption feedback
                 if (moveResult.capturedPiece) {
                    // console.log('🎉 [ABSORPTION] Piece absorbed with abilities:', moveResult.capturedPiece.abilities);
+                   if (moveResult.capturedPiece.type === 'king') {
+                        console.log('👑 [GAME END] King captured!');
+                        this.gameState.gameOver = true;
+                        this.gameState.game_over = true;
+                        this.gameState.winner = moveResult.capturedPiece.color === 'white' ? 'black' : 'white';
+                        this.gameState.reason = 'checkmate';
+                        this.handleBotGameOver('checkmate');
+                   }
                 }
                 
                 // Redraw board
@@ -2073,6 +2081,9 @@ class ChessApp {
      */
     async checkGameEndConditions() {
         try {
+            if (this.gameState.game_over || this.gameState.gameOver) {
+                return;
+            }
             if (!this.bot || !this.bot.engine) {
                 console.log('❌ [GAME END] No bot or engine available');
                 return;

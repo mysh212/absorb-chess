@@ -118,17 +118,25 @@ class GameHandler:
             # Always add valid moves to game state for frontend
             new_state['valid_moves'] = client_moves
             
-            # Check for game over (checkmate/stalemate)
-            if not valid_moves:
+            # Check for game over (checkmate/stalemate/king captured)
+            if new_state.get('game_over') or not valid_moves:
                 reason = None
-                # Check if current turn king is in check
-                if ((new_state.get('current_turn') == 'white' and new_state.get('white_king_in_check')) or 
-                    (new_state.get('current_turn') == 'black' and new_state.get('black_king_in_check'))):
-                    reason = 'checkmate'
-                    new_state['winner'] = 'black' if new_state.get('current_turn') == 'white' else 'white'
+                if not valid_moves:
+                    # Check if current turn king is in check
+                    if ((new_state.get('current_turn') == 'white' and new_state.get('white_king_in_check')) or 
+                        (new_state.get('current_turn') == 'black' and new_state.get('black_king_in_check'))):
+                        reason = 'checkmate'
+                        new_state['winner'] = 'black' if new_state.get('current_turn') == 'white' else 'white'
+                    else:
+                        reason = 'stalemate'
+                        new_state['winner'] = None  
                 else:
-                    reason = 'stalemate'
-                    new_state['winner'] = None  
+                    reason = 'checkmate'
+                    # The winner is already set by move_piece
+
+                # Ensure game_over flag is set if we reached here via valid_moves check
+                new_state['game_over'] = True
+                
                 # First send move_made
                 
                 # Then send game_over
@@ -415,15 +423,20 @@ class GameHandler:
             self.state.update_lobby_game_state(lobby.code, new_state)
             
             # Check for game over after promotion
-            if not valid_moves:
+            if new_state.get('game_over') or not valid_moves:
                 reason = None
-                if ((new_state.get('current_turn') == 'white' and new_state.get('white_king_in_check')) or 
-                    (new_state.get('current_turn') == 'black' and new_state.get('black_king_in_check'))):
-                    reason = 'checkmate'
-                    new_state['winner'] = 'black' if new_state.get('current_turn') == 'white' else 'white'
+                if not valid_moves:
+                    if ((new_state.get('current_turn') == 'white' and new_state.get('white_king_in_check')) or 
+                        (new_state.get('current_turn') == 'black' and new_state.get('black_king_in_check'))):
+                        reason = 'checkmate'
+                        new_state['winner'] = 'black' if new_state.get('current_turn') == 'white' else 'white'
+                    else:
+                        reason = 'stalemate'
+                        new_state['winner'] = None
                 else:
-                    reason = 'stalemate'
-                    new_state['winner'] = None
+                    reason = 'checkmate'
+                    
+                new_state['game_over'] = True
                 
                 return {
                     'type': 'game_over',
