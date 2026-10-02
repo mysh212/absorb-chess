@@ -97,6 +97,14 @@ class ChessGame:
         captured_piece = self.get_piece_at(to_row, to_col)
         self.board[to_row][to_col] = piece
         self.board[from_row][from_col] = None
+        
+        en_passant_captured = None
+        if piece.type == PieceType.PAWN and self.en_passant_target and to_pos == self.en_passant_target:
+            ep_row = to_row + (1 if piece.color == Color.WHITE else -1)
+            en_passant_captured = self.board[ep_row][to_col]
+            if en_passant_captured:
+                self.board[ep_row][to_col] = None
+
         original_position = piece.position
         piece.position = (to_row, to_col)
         
@@ -106,6 +114,8 @@ class ChessGame:
         # Revert the move
         self.board[from_row][from_col] = piece
         self.board[to_row][to_col] = captured_piece
+        if en_passant_captured:
+            self.board[ep_row][to_col] = en_passant_captured
         piece.position = original_position
         
         return king_in_check
@@ -158,12 +168,22 @@ class ChessGame:
         captured_piece = self.get_piece_at(to_row, to_col)
         self.board[to_row][to_col] = piece
         self.board[from_row][from_col] = None
+
+        en_passant_captured = None
+        if piece.type == PieceType.PAWN and self.en_passant_target and to_pos == self.en_passant_target:
+            ep_row = to_row + (1 if piece.color == Color.WHITE else -1)
+            en_passant_captured = self.board[ep_row][to_col]
+            if en_passant_captured:
+                self.board[ep_row][to_col] = None
+
         original_position = piece.position
         piece.position = (to_row, to_col)
         king_in_check = self._is_king_in_check(piece.color)
         # Revert
         self.board[from_row][from_col] = piece
         self.board[to_row][to_col] = captured_piece
+        if en_passant_captured:
+            self.board[ep_row][to_col] = en_passant_captured
         piece.position = original_position
         if king_in_check:
             return False
