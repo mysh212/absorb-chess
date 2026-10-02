@@ -1,6 +1,5 @@
 from typing import Dict, List, Optional, Tuple
 
-from sympy import PoleError
 from .enums import PieceType, Color
 from .piece import Piece
 import datetime
@@ -269,12 +268,14 @@ class ChessGame:
             move_record['final_piece'] = None
         self.move_history.append(move_record)
 
-        # Check for check after the move
-        self._update_check_status()
-
         # Switch turns unless promotion is pending
         if not became_promotion:
             self.current_turn = Color.BLACK if self.current_turn == Color.WHITE else Color.WHITE
+
+        # Check for check/checkmate AFTER switching turns, so _has_legal_moves
+        # evaluates the player who now needs to move (and might be checkmated)
+        self._update_check_status()
+
         return True
    
     def _get_valid_moves_for_ability(self, from_pos, ability = None) -> List[tuple]:

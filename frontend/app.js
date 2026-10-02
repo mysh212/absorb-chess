@@ -1867,6 +1867,17 @@ class ChessApp {
             // Show absorption feedback
             if (moveResult.capturedPiece) {
                 console.log('🎉 [ABSORPTION] Player captured piece with abilities:', moveResult.capturedPiece.abilities);
+                // If king was captured, end game immediately
+                if (moveResult.capturedPiece.type === 'king') {
+                    console.log('👑 [GAME END] King captured!');
+                    this.gameState.gameOver = true;
+                    this.gameState.game_over = true;
+                    this.gameState.winner = moveResult.capturedPiece.color === 'white' ? 'black' : 'white';
+                    this.gameState.reason = 'checkmate';
+                    this.renderChessBoard();
+                    this.handleBotGameOver('checkmate');
+                    return true;
+                }
             }
             
             // Redraw and update UI
@@ -1875,22 +1886,12 @@ class ChessApp {
             await this.updateCheckStatus();
             this.renderChessBoard();
             
-            // Notify bot of player move
-            if (this.bot) {
-                const moveForBot = {
-                    from: [from.row, from.col],
-                    to: [to.row, to.col],
-                    flags: to.flags || 0
-                };
-                await this.bot.onPlayerMove(moveForBot);
-            }
-            
-            // Check for game end conditions
+            // Check for game end conditions (checkmate/stalemate)
             await this.checkGameEndConditions();
             
-            // Handle next turn (bot's turn)
+            // If game is not over, trigger bot's turn
             if (!this.gameState.game_over && !this.gameState.gameOver) {
-                await this.handleNextTurn();
+                this.handleNextTurn();
             }
             
             return true;
@@ -1941,7 +1942,7 @@ class ChessApp {
         //console.log('🔄 [TURN HANDLER] isBotGame:', this.isBotGame, 'game_over:', this.gameState.game_over);
         //console.log('🔄 [TURN HANDLER] playerColor:', this.playerColor);
         
-        if (this.isBotGame && !this.gameState.game_over) {
+        if (this.isBotGame && !this.gameState.game_over && !this.gameState.gameOver) {
             const isPlayerTurn = this.gameState.current_turn === this.playerColor;
             //console.log('🔄 [TURN HANDLER] isPlayerTurn:', isPlayerTurn);
             
@@ -1964,7 +1965,7 @@ class ChessApp {
      */
     async makeBotMove() {
         try {
-            if (!this.bot || this.gameState.game_over) {
+            if (!this.bot || this.gameState.game_over || this.gameState.gameOver) {
                 return;
             }
             
@@ -1984,9 +1985,8 @@ class ChessApp {
             console.error('Error making bot move:', error);
         }
     }
-
     /**
-     * Apply move locally for bot games
+     * Apply move locally for bot games (used by bot.js for bot moves)
      */
     async applyLocalMove(move) {
         try {
@@ -2007,26 +2007,25 @@ class ChessApp {
 
             if (moveResult.success) {
                 // Update game state
-                //console.log('🔄 [TURN] Before turn switch - current_turn:', this.gameState.current_turn);
                 this.gameState.current_turn = this.gameState.current_turn === 'white' ? 'black' : 'white';
-                //console.log('🔄 [TURN] After turn switch - current_turn:', this.gameState.current_turn);
                 
                 // Update move history
                 this.addMoveToHistory(move);
                 
-                // Set last move highlighting (like in PvP)
+                // Set last move highlighting
                 this.lastMoveHighlight = { from: move.from, to: move.to };
                 
-                // Show absorption feedback
+                // Check for king capture — end game immediately
                 if (moveResult.capturedPiece) {
-                   // console.log('🎉 [ABSORPTION] Piece absorbed with abilities:', moveResult.capturedPiece.abilities);
                    if (moveResult.capturedPiece.type === 'king') {
                         console.log('👑 [GAME END] King captured!');
                         this.gameState.gameOver = true;
                         this.gameState.game_over = true;
                         this.gameState.winner = moveResult.capturedPiece.color === 'white' ? 'black' : 'white';
                         this.gameState.reason = 'checkmate';
+                        this.renderChessBoard();
                         this.handleBotGameOver('checkmate');
+                        return true;
                    }
                 }
                 
@@ -2034,26 +2033,14 @@ class ChessApp {
                 this.renderChessBoard();
                 this.updateCurrentTurn();
                 
-                // Update check status for both players (like in PvP)
+                // Update check status
                 await this.updateCheckStatus();
-                
-                // Re-render board to show check highlighting
                 this.renderChessBoard();
                 
-                // Check for game end conditions
-                //console.log('🔄 [MOVE] About to check game end conditions...');
+                // Check for checkmate/stalemate
                 await this.checkGameEndConditions();
-                // console.log('🔄 [TURN] After checkGameEndConditions - current_turn:', this.gameState.current_turn);
                 
-                // If game is not over, handle next turn
-                if (!this.gameState.game_over && !this.gameState.gameOver) {
-                    //console.log('🔄 [MOVE] Game continues, calling handleNextTurn...');
-                    await this.handleNextTurn();
-                } else {
-                    //console.log('🏁 [MOVE] Game is over, not calling handleNextTurn');
-                }
-                
-                //console.log('✅ Move applied successfully');
+                // Note: do NOT call handleNextTurn here — the caller (bot.js) handles its own turn logic
                 return true;
             } else {
                 console.log('❌ Failed to apply move');
@@ -2166,60 +2153,31 @@ class ChessApp {
             if (this.gameState.game_over || this.gameState.gameOver) {
                 return;
             }
-            if (!this.bot || !this.bot.engine) {
-                console.log('❌ [GAME END] No bot or engine available');
-                return;
-            }
 
-            //console.log('🔍 [GAME END] Checking game end conditions for', this.gameState.current_turn);
+            const currentColor = this.gameState.current_turn;
+            console.log('🔍 [GAME END] Checking game end for', currentColor);
 
-            // Get legal moves for current player
-            let legalMoves;
-            try {
-                legalMoves = await this.bot.engine.getLegalMoves(
-                    this.gameState.board, 
-                    this.gameState
-                );
-                //console.log('🔍 [GAME END] Legal moves retrieved successfully:', Object.keys(legalMoves).length, 'pieces with moves');
-            } catch (error) {
-                console.error('❌ [GAME END] Failed to get legal moves:', error);
-                console.log('🔄 [GAME END] Skipping game end check due to engine error');
-                return; // Don't end game if we can't get legal moves
-            }
+            // Use pure JS logic — the WASM engine doesn't understand absorbed abilities
+            const hasLegal = this.hasLegalMovesJS(currentColor);
 
-            const hasLegalMoves = Object.keys(legalMoves).length > 0;
+            if (!hasLegal) {
+                const isInCheck = this.isKingInCheckJS(currentColor, this.gameState.board);
+                console.log('🚨 [GAME END] No legal moves! inCheck:', isInCheck);
 
-            if (!hasLegalMoves) {
-                console.log('🚨 [GAME END] No legal moves found! Checking for checkmate vs stalemate...');
-                
-                // No legal moves - check if it's checkmate or stalemate
-                const isInCheck = await this.bot.engine.isInCheck(
-                    this.gameState.board, 
-                    this.gameState
-                );
-
-                console.log('🔍 [GAME END] Is in check:', isInCheck);
+                this.gameState.gameOver = true;
+                this.gameState.game_over = true;
 
                 if (isInCheck) {
-                    // Checkmate
                     console.log('♛ [GAME END] CHECKMATE!');
-                    this.gameState.gameOver = true;
-                    this.gameState.game_over = true;  // Keep both for compatibility
-                    this.gameState.winner = this.gameState.current_turn === 'white' ? 'black' : 'white';
+                    this.gameState.winner = currentColor === 'white' ? 'black' : 'white';
                     this.gameState.reason = 'checkmate';
                     this.handleBotGameOver('checkmate');
                 } else {
-                    // Stalemate
                     console.log('🤝 [GAME END] STALEMATE!');
-                    this.gameState.gameOver = true;
-                    this.gameState.game_over = true;  // Keep both for compatibility
                     this.gameState.winner = null;
                     this.gameState.reason = 'stalemate';
                     this.handleBotGameOver('stalemate');
                 }
-            } else {
-                //console.log('✅ [GAME END] Game continues - found legal moves');
-                // Note: Do NOT call handleNextTurn here as it's already handled by the move application flow
             }
         } catch (error) {
             console.error('Error checking game end conditions:', error);
