@@ -732,35 +732,6 @@ class ChessGame:
         """Check if there is a promotion pending"""
         return self.promotion_pending is not None
 
-    def get_board_state(self) -> Dict:
-        board_state = []
-        for row in self.board:
-            row_state = []
-            for piece in row:
-                if piece:
-                    row_state.append({
-                        'type': piece.type.value,
-                        'color': piece.color.value,
-                        'abilities': [ability.value for ability in piece.abilities],
-                        'position': piece.position,
-                        'has_moved': piece.has_moved
-                    })
-                else:
-                    row_state.append(None)
-            board_state.append(row_state)
-        return {
-            'board': board_state,
-            'current_turn': self.current_turn.value,
-            'game_over': self.game_over,
-            'winner': self.winner.value if self.winner else None,
-            'move_history': self.move_history,
-            'white_king_in_check': self.white_king_in_check,
-            'black_king_in_check': self.black_king_in_check,
-            'en_passant_target': self.en_passant_target,
-            'promotion_pending': self.promotion_pending,
-            'promotion_cancel_allowed': True
-        }
-    
     def calculate_moves_fast(self) -> Dict[tuple, list]:
         """High-speed calculation of all legal moves for the current turn."""
         moves = {}
