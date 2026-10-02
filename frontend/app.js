@@ -1588,6 +1588,13 @@ class ChessApp {
         if (this.lastMoveHighlight) {
             this.restoreLastMoveHighlighting();
         }
+        
+        // Disable interactions if game is over
+        if (this.gameState && (this.gameState.game_over || this.gameState.gameOver)) {
+            document.querySelectorAll('.chess-square').forEach(square => {
+                square.style.pointerEvents = 'none';
+            });
+        }
     }
     
     restoreLastMoveHighlighting() {
@@ -1737,6 +1744,10 @@ class ChessApp {
     }
     
     handleSquareClick(row, col) {
+        if (this.gameState && (this.gameState.game_over || this.gameState.gameOver)) {
+            return;
+        }
+        
         // Always check if it's the current player's turn first
         if (!this.isCurrentPlayerTurn()) {
             console.log("Not your turn!");
@@ -1771,7 +1782,7 @@ class ChessApp {
     }
     
     isCurrentPlayerTurn() {
-        if (!this.gameState) return false;
+        if (!this.gameState || this.gameState.game_over || this.gameState.gameOver) return false;
         // Check if current turn matches the player's color
         // This assumes we know which player we are - we'll need to track this
         return this.gameState.current_turn === this.playerColor;
@@ -1904,9 +1915,9 @@ class ChessApp {
             
             // Only check if the current player's king is in check
             // (after a move, only the current player's king can be in check)
-            const isCurrentPlayerInCheck = await this.bot.engine.isInCheck(
-                this.gameState.board,
-                this.gameState
+            const isCurrentPlayerInCheck = this.isKingInCheckJS(
+                this.gameState.current_turn,
+                this.gameState.board
             );
             
             if (this.gameState.current_turn === 'white') {
@@ -2079,6 +2090,77 @@ class ChessApp {
     /**
      * Check for game end conditions
      */
+
+    // --- JS Fallback Checkmate Logic ---
+    isKingInCheckJS(color, board) {
+        let kingPos = null;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = board[r][c];
+                if (p && p.type === 'king' && p.color === color) {
+                    kingPos = {row: r, col: c};
+                    break;
+                }
+            }
+            if (kingPos) break;
+        }
+        if (!kingPos) return false;
+        
+        const oppColor = color === 'white' ? 'black' : 'white';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = board[r][c];
+                if (p && p.color === oppColor) {
+                    // Temporarily set board to avoid modifying global state if calculatePossibleMoves uses it
+                    const oldBoard = this.gameState.board;
+                    this.gameState.board = board;
+                    const moves = this.calculatePossibleMoves(p, r, c);
+                    this.gameState.board = oldBoard;
+                    
+                    for (const m of moves) {
+                        if (m.row === kingPos.row && m.col === kingPos.col) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    cloneBoard(board) {
+        return board.map(row => row.map(p => p ? {...p, abilities: [...p.abilities]} : null));
+    }
+    
+    hasLegalMovesJS(color) {
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = this.gameState.board[r][c];
+                if (p && p.color === color) {
+                    const pseudoMoves = this.calculatePossibleMoves(p, r, c);
+                    for (const m of pseudoMoves) {
+                        // Simulate move
+                        const clonedBoard = this.cloneBoard(this.gameState.board);
+                        const captured = clonedBoard[m.row][m.col];
+                        clonedBoard[m.row][m.col] = clonedBoard[r][c];
+                        clonedBoard[r][c] = null;
+                        
+                        if (clonedBoard[m.row][m.col].type === 'king') {
+                            clonedBoard[m.row][m.col].hasMoved = true;
+                        }
+                        
+                        // Check if king is safe
+                        if (!this.isKingInCheckJS(color, clonedBoard)) {
+                            return true; // Found at least one legal move
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    // ------------------------------------
+
     async checkGameEndConditions() {
         try {
             if (this.gameState.game_over || this.gameState.gameOver) {
@@ -2210,7 +2292,21 @@ class ChessApp {
             this.allValidMoves = new Map();
 
             for (const [position, moves] of Object.entries(legalMoves)) {
-                this.allValidMoves.set(position, moves.map(move => {
+                // Filter out moves that leave our king in check using JS logic
+                const validMovesForPiece = moves.filter(move => {
+                    const toRow = Array.isArray(move) ? move[0] : move.to[0];
+                    const toCol = Array.isArray(move) ? move[1] : move.to[1];
+                    const fromRow = parseInt(position.split(',')[0]);
+                    const fromCol = parseInt(position.split(',')[1]);
+                    
+                    const clonedBoard = this.cloneBoard(this.gameState.board);
+                    clonedBoard[toRow][toCol] = clonedBoard[fromRow][fromCol];
+                    clonedBoard[fromRow][fromCol] = null;
+                    
+                    return !this.isKingInCheckJS(this.gameState.current_turn, clonedBoard);
+                });
+                
+                this.allValidMoves.set(position, validMovesForPiece.map(move => {
                     // Handle both old format [row, col] and new format {to: [row, col], flags: flags}
                     if (Array.isArray(move)) {
                         // Old format: [row, col]
