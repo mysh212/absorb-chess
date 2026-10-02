@@ -392,7 +392,7 @@ class ChessGame:
             return False
 
         # Check if move would put own king in check
-        return not self._is_king_in_check(piece.color)
+        return not self._would_move_put_king_in_check(piece, from_pos, to_pos)
 
     # ... (Rest of the movement validation methods from server.py)
     
