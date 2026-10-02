@@ -76,11 +76,24 @@ class ChessGame:
                 captured = self.board[to_row][to_col]
                 self.board[to_row][to_col] = piece
                 self.board[row][col] = None
+
+                ep_cap = None
+                if piece.type == PieceType.PAWN and self.en_passant_target and (to_row, to_col) == self.en_passant_target:
+                    ep_row = to_row + (1 if piece.color == Color.WHITE else -1)
+                    ep_cap = self.board[ep_row][to_col]
+                    if ep_cap:
+                        self.board[ep_row][to_col] = None
+
                 orig_pos = piece.position
                 piece.position = (to_row, to_col)
-                king_check = self._is_king_in_check(piece.color, king_pos)
+                
+                test_king_pos = (to_row, to_col) if piece.type == PieceType.KING else king_pos
+                king_check = self._is_king_in_check(piece.color, test_king_pos)
+                
                 self.board[row][col] = piece
                 self.board[to_row][to_col] = captured
+                if ep_cap:
+                    self.board[ep_row][to_col] = ep_cap
                 piece.position = orig_pos
                 if not king_check:
                     valid_moves.append((to_row, to_col))
@@ -864,7 +877,13 @@ class ChessGame:
                                     path_clear = False
                                     break
                             if path_clear and not self._is_king_in_check(color, king_pos):
-                                valid_moves.add((row,col+2*side))
+                                passed_safe = True
+                                for c in [col + side, col + 2*side]:
+                                    if self._square_attacked((row, c), color):
+                                        passed_safe = False
+                                        break
+                                if passed_safe:
+                                    valid_moves.add((row,col+2*side))
 
             # Filter moves that leave king in check
             legal_moves = []
@@ -872,13 +891,24 @@ class ChessGame:
                 captured = self.board[to_row][to_col]
                 self.board[to_row][to_col] = piece
                 self.board[row][col] = None
+
+                ep_cap = None
+                if piece.type == PieceType.PAWN and self.en_passant_target and (to_row, to_col) == self.en_passant_target:
+                    ep_row = to_row + (1 if color == Color.WHITE else -1)
+                    ep_cap = self.board[ep_row][to_col]
+                    if ep_cap:
+                        self.board[ep_row][to_col] = None
+
                 orig_pos = piece.position
                 piece.position = (to_row, to_col)
 
-                king_safe = not self._is_king_in_check(color, king_pos)
+                test_king_pos = (to_row, to_col) if piece.type == PieceType.KING else king_pos
+                king_safe = not self._is_king_in_check(color, test_king_pos)
 
                 self.board[row][col] = piece
                 self.board[to_row][to_col] = captured
+                if ep_cap:
+                    self.board[ep_row][to_col] = ep_cap
                 piece.position = orig_pos
                 if king_safe:
                     legal_moves.append((to_row,to_col))
