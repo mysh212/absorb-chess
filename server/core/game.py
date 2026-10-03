@@ -272,9 +272,9 @@ class ChessGame:
         if not became_promotion:
             self.current_turn = Color.BLACK if self.current_turn == Color.WHITE else Color.WHITE
 
-        # Check for check/checkmate AFTER switching turns, so _has_legal_moves
-        # evaluates the player who now needs to move (and might be checkmated)
-        self._update_check_status()
+            # Check for check/checkmate AFTER switching turns, so _has_legal_moves
+            # evaluates the player who now needs to move (and might be checkmated)
+            self._update_check_status()
 
         return True
    
@@ -573,6 +573,14 @@ class ChessGame:
             if self._square_attacked((from_row, c), piece.color):
                 return False
         return True
+    def _is_square_attacked_by_pawn(self, pawn: Piece, from_pos: tuple, target_pos: tuple) -> bool:
+        """Helper to specifically check if a pawn attacks a square, regardless of whether a piece is there."""
+        from_row, from_col = from_pos
+        target_row, target_col = target_pos
+        direction = -1 if pawn.color == Color.WHITE else 1
+        
+        # Pawn attacks diagonally forward
+        return abs(target_col - from_col) == 1 and target_row == from_row + direction
 
     def _square_attacked(self, pos: tuple, defender_color: Color) -> bool:
         # attacker is the opposite color
@@ -582,12 +590,16 @@ class ChessGame:
             for col in range(8):
                 attacker = self.get_piece_at(row, col)
                 if attacker and attacker.color == attacker_color:
-                    if self._is_valid_move_for_ability(attacker, (row, col), (r, c), attacker.type):
-                        return True
-                    # Also check other abilities if attacker has multiple
+                    # Check all abilities, including base type
                     for ability in attacker.abilities:
-                        if ability != attacker.type and self._is_valid_move_for_ability(attacker, (row, col), (r, c), ability):
-                            return True
+                        if ability == PieceType.PAWN:
+                            # Use explicit pawn attack logic (works on empty squares)
+                            if self._is_square_attacked_by_pawn(attacker, (row, col), (r, c)):
+                                return True
+                        else:
+                            # Other abilities work fine with _is_valid_move_for_ability
+                            if self._is_valid_move_for_ability(attacker, (row, col), (r, c), ability):
+                                return True
         return False
     
     def _has_legal_moves(self, color: Color) -> bool:
