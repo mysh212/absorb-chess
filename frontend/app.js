@@ -1183,13 +1183,47 @@ class ChessApp {
                 
                 this.clearPromotionModal();
                 
-                // Apply the promotion move
-                const success = await this.applyLocalMove(promotionMove);
-                if (success && this.bot) {
-                    // Notify bot of player move
-                    await this.bot.onPlayerMove(promotionMove);
-                    // After player move, trigger bot move
-                    this.handleNextTurn();
+                // Apply the promotion move like a normal player move
+                const moveResult = applyPlayerMove(
+                    this.gameState.board, 
+                    promotionMove.from, 
+                    promotionMove.to, 
+                    promotionMove.flags || 0
+                );
+                
+                if (moveResult.success) {
+                    this.gameState.current_turn = this.gameState.current_turn === 'white' ? 'black' : 'white';
+                    this.addMoveToHistory(promotionMove);
+                    this.lastMoveHighlight = { from: promotionMove.from, to: promotionMove.to };
+                    
+                    // Show absorption feedback
+                    if (moveResult.capturedPiece) {
+                        console.log('🎉 [ABSORPTION] Player captured piece on promotion with abilities:', moveResult.capturedPiece.abilities);
+                        // If king was captured, end game immediately
+                        if (moveResult.capturedPiece.type === 'king') {
+                            console.log('👑 [GAME END] King captured on promotion!');
+                            this.gameState.gameOver = true;
+                            this.gameState.game_over = true;
+                            this.gameState.winner = moveResult.capturedPiece.color === 'white' ? 'black' : 'white';
+                            this.gameState.reason = 'checkmate';
+                            this.renderChessBoard();
+                            this.handleBotGameOver('checkmate');
+                            return;
+                        }
+                    }
+
+                    this.renderChessBoard();
+                    this.updateCurrentTurn();
+                    await this.updateCheckStatus();
+                    this.renderChessBoard();
+                    
+                    // Check game end conditions
+                    await this.checkGameEndConditions();
+                    
+                    if (this.bot && !this.gameState.game_over && !this.gameState.gameOver) {
+                        // After player move, trigger bot move exactly once
+                        this.handleNextTurn();
+                    }
                 }
             });
         });
@@ -1864,6 +1898,9 @@ class ChessApp {
             });
             this.lastMoveHighlight = { from: [from.row, from.col], to: [to.row, to.col] };
             
+            // Update en passant target
+            this.gameState.en_passant_target = moveResult.enPassantTarget || null;
+            
             // Show absorption feedback
             if (moveResult.capturedPiece) {
                 console.log('🎉 [ABSORPTION] Player captured piece with abilities:', moveResult.capturedPiece.abilities);
@@ -2014,6 +2051,9 @@ class ChessApp {
                 
                 // Set last move highlighting
                 this.lastMoveHighlight = { from: move.from, to: move.to };
+                
+                // Update en passant target
+                this.gameState.en_passant_target = moveResult.enPassantTarget || null;
                 
                 // Check for king capture — end game immediately
                 if (moveResult.capturedPiece) {

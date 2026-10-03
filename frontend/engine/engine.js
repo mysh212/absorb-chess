@@ -393,8 +393,16 @@ function applyMoveToBoard(board, move) {
         board[from[0]][from[1]] = null;
     }
     
+    let newEnPassantTarget = null;
+    if (movingPiece.type === 'pawn' && Math.abs(to[0] - from[0]) === 2) {
+        // Pawn double push, set en passant target
+        const direction = movingPiece.color === 'white' ? 1 : -1;
+        newEnPassantTarget = [to[0] + direction, to[1]];
+        console.log('🎯 [EN PASSANT] New target set at:', newEnPassantTarget);
+    }
+    
     console.log('✅ [MOVE] Move applied successfully');
-    return { success: true, capturedPiece };
+    return { success: true, capturedPiece, enPassantTarget: newEnPassantTarget };
 }
 
 /**
