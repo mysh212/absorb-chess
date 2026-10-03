@@ -93,9 +93,14 @@ class GameHandler:
             new_state = game.get_board_state()
             # print(f"New state current_turn: {new_state['current_turn']}") # debug
             
-            # Merge clock information
+            # Merge clock information and timeout state
             if game_state.get('clock'):
                 new_state['clock'] = game_state['clock']
+            if game_state.get('game_over'):
+                new_state['game_over'] = True
+                new_state['winner'] = game_state.get('winner')
+                # If game is over due to timeout, calculate_moves doesn't matter much
+                # but we should let the rest of the flow handle the game_over event
             
             # Check for promotion first
             if game.promotion_pending:

@@ -77,7 +77,7 @@ class ChessGame:
                 self.board[row][col] = None
 
                 ep_cap = None
-                if piece.type == PieceType.PAWN and self.en_passant_target and (to_row, to_col) == self.en_passant_target:
+                if PieceType.PAWN in piece.abilities and self.en_passant_target and (to_row, to_col) == self.en_passant_target:
                     ep_row = to_row + (1 if piece.color == Color.WHITE else -1)
                     ep_cap = self.board[ep_row][to_col]
                     if ep_cap:
@@ -111,7 +111,7 @@ class ChessGame:
         self.board[from_row][from_col] = None
         
         en_passant_captured = None
-        if piece.type == PieceType.PAWN and self.en_passant_target and to_pos == self.en_passant_target:
+        if PieceType.PAWN in piece.abilities and self.en_passant_target and to_pos == self.en_passant_target:
             ep_row = to_row + (1 if piece.color == Color.WHITE else -1)
             en_passant_captured = self.board[ep_row][to_col]
             if en_passant_captured:
@@ -182,7 +182,7 @@ class ChessGame:
         self.board[from_row][from_col] = None
 
         en_passant_captured = None
-        if piece.type == PieceType.PAWN and self.en_passant_target and to_pos == self.en_passant_target:
+        if PieceType.PAWN in piece.abilities and self.en_passant_target and to_pos == self.en_passant_target:
             ep_row = to_row + (1 if piece.color == Color.WHITE else -1)
             en_passant_captured = self.board[ep_row][to_col]
             if en_passant_captured:
@@ -228,7 +228,7 @@ class ChessGame:
 
         # En passant
         self.valid_moves.clear()
-        if (piece.type == PieceType.PAWN and self.en_passant_target and to_pos == self.en_passant_target):
+        if (PieceType.PAWN in piece.abilities and self.en_passant_target and to_pos == self.en_passant_target):
             en_passant_row = to_row + (1 if piece.color == Color.WHITE else -1)
             en_passant_captured = self.get_piece_at(en_passant_row, to_col)
             if en_passant_captured:
