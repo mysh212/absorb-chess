@@ -2172,6 +2172,27 @@ class ChessApp {
                         clonedBoard[m.row][m.col] = clonedBoard[r][c];
                         clonedBoard[r][c] = null;
                         
+                        // Handle en passant capture in simulation
+                        if (clonedBoard[m.row][m.col].abilities.includes('pawn') && 
+                            this.gameState.en_passant_target && 
+                            m.row === this.gameState.en_passant_target[0] && 
+                            m.col === this.gameState.en_passant_target[1]) {
+                            const epRow = m.row + (color === 'white' ? 1 : -1);
+                            clonedBoard[epRow][m.col] = null;
+                        }
+                        
+                        // Handle castling rook move in simulation
+                        if (clonedBoard[m.row][m.col].type === 'king' && Math.abs(m.col - c) === 2) {
+                            const direction = m.col > c ? 1 : -1;
+                            const rookCol = direction === 1 ? 7 : 0;
+                            const newRookCol = m.col - direction;
+                            const rook = clonedBoard[r][rookCol];
+                            if (rook) {
+                                clonedBoard[r][newRookCol] = rook;
+                                clonedBoard[r][rookCol] = null;
+                            }
+                        }
+                        
                         if (clonedBoard[m.row][m.col].type === 'king') {
                             clonedBoard[m.row][m.col].hasMoved = true;
                         }
@@ -2298,8 +2319,38 @@ class ChessApp {
                     const fromCol = parseInt(position.split(',')[1]);
                     
                     const clonedBoard = this.cloneBoard(this.gameState.board);
-                    clonedBoard[toRow][toCol] = clonedBoard[fromRow][fromCol];
+                    
+                    // Simulate special moves in filtering
+                    const movingPiece = clonedBoard[fromRow][fromCol];
+                    const toMoveInfo = Array.isArray(move) ? {row: move[0], col: move[1]} : {row: move.to[0], col: move.to[1]};
+                    const toRowStr = toMoveInfo.row;
+                    const toColStr = toMoveInfo.col;
+                    
+                    clonedBoard[toRowStr][toColStr] = movingPiece;
                     clonedBoard[fromRow][fromCol] = null;
+                    
+                    if (movingPiece) {
+                        // En passant capture
+                        if (movingPiece.abilities.includes('pawn') && 
+                            this.gameState.en_passant_target && 
+                            toRowStr === this.gameState.en_passant_target[0] && 
+                            toColStr === this.gameState.en_passant_target[1]) {
+                            const epRow = toRowStr + (movingPiece.color === 'white' ? 1 : -1);
+                            clonedBoard[epRow][toColStr] = null;
+                        }
+                        
+                        // Castling rook move
+                        if (movingPiece.type === 'king' && Math.abs(toColStr - fromCol) === 2) {
+                            const direction = toColStr > fromCol ? 1 : -1;
+                            const rookCol = direction === 1 ? 7 : 0;
+                            const newRookCol = toColStr - direction;
+                            const rook = clonedBoard[fromRow][rookCol];
+                            if (rook) {
+                                clonedBoard[fromRow][newRookCol] = rook;
+                                clonedBoard[fromRow][rookCol] = null;
+                            }
+                        }
+                    }
                     
                     return !this.isKingInCheckJS(this.gameState.current_turn, clonedBoard);
                 });

@@ -554,9 +554,14 @@ class ChessGame:
             if target_piece and target_piece.color == piece.color:
                 return False
             return True
-        # Castling
-        if piece.has_moved or from_row != to_row or abs(to_col - from_col) != 2:
+        # Castling - strictly only for the actual King piece, not pieces that absorbed King ability
+        if piece.type != PieceType.KING or piece.has_moved or from_row != to_row or abs(to_col - from_col) != 2:
             return False
+        
+        # Check if this king has already castled (just an extra safety check)
+        if self.king_castled.get(piece.color, False):
+            return False
+            
         direction = 1 if to_col > from_col else -1
         rook_col = 7 if direction == 1 else 0
         rook = self.get_piece_at(from_row, rook_col)
@@ -759,20 +764,7 @@ class ChessGame:
         
         return True
 
-    def cancel_promotion(self):
-        if not self.promotion_pending:
-            return False
-        row = self.promotion_pending['row']
-        col = self.promotion_pending['col']
-        from_row, from_col = self.promotion_pending['from']
-        pawn = self.get_piece_at(row, col)
-        # Move the pawn back to original position
-        self.board[from_row][from_col] = pawn
-        self.board[row][col] = None
-        if pawn:
-            pawn.position = (from_row, from_col)
-        self.promotion_pending = None
-        return True
+    # cancel_promotion was removed as it corrupted game state by failing to restore captured pieces, abilities, and history
 
     def is_promotion_pending(self) -> bool:
         """Check if there is a promotion pending"""

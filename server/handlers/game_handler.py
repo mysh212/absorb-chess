@@ -375,20 +375,7 @@ class GameHandler:
             return None
             
         if choice.lower() == 'cancel':
-            if lobby.game_state.get('promotion_cancel_allowed'):
-                if game.cancel_promotion():
-                    new_state = game.get_board_state()
-                    # Merge clock information
-                    if lobby.game_state.get('clock'):
-                        new_state['clock'] = lobby.game_state['clock']
-                    
-                    # Update lobby state
-                    self.state.update_lobby_game_state(lobby.code, new_state)
-                    
-                    return {
-                        'type': 'promotion_canceled',
-                        'game_state': new_state
-                    }
+            # Cancel is no longer supported as it corrupted game state
             return None
         
         # Apply promotion
