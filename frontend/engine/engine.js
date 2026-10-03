@@ -371,15 +371,20 @@ function applyMoveToBoard(board, move) {
     if (flags !== MoveType.CASTLING) {
         // Handle absorption if there's a capture
         if (capturedPiece && capturedPiece.color !== movingPiece.color) {
-            console.log('💥 [ABSORPTION] Capturing piece:', capturedPiece.type);
+            console.log('💥 [ABSORPTION] Capturing piece:', capturedPiece.type, 'with abilities:', capturedPiece.abilities);
             
-            // Add captured piece's base type to abilities
             if (!movingPiece.abilities) {
                 movingPiece.abilities = [movingPiece.type];
             }
-            if (!movingPiece.abilities.includes(capturedPiece.type)) {
-                movingPiece.abilities.push(capturedPiece.type);
-                console.log('✨ [ABSORPTION] Gained ability:', capturedPiece.type);
+            // Transfer ALL abilities from the captured piece, not just its base type
+            const abilitiesToTransfer = capturedPiece.abilities && capturedPiece.abilities.length > 0
+                ? capturedPiece.abilities
+                : [capturedPiece.type];
+            for (const ability of abilitiesToTransfer) {
+                if (!movingPiece.abilities.includes(ability)) {
+                    movingPiece.abilities.push(ability);
+                    console.log('✨ [ABSORPTION] Gained ability:', ability);
+                }
             }
         }
         
